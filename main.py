@@ -1,86 +1,55 @@
-from mtcnn.mtcnn import MTCNN
-import cv2
-import numpy
-import imutils
+import os
 
-# Создание сети нахождения лиц
-detector = MTCNN()
+from flask import flash, request, redirect, url_for, render_template
+from werkzeug.utils import secure_filename
 
-# Загрузка изображения с лицами
-image = cv2.imread('task/images/lena.png')
+from app import app
+from detect_face import detect_image_face
 
-# Увеличение/уменьшение наименьшей стороны изображения до 1000 пикселей
-if image.shape[0] < image.shape[1]:
-    image = imutils.resize(image, height=1000)
-else:
-    image = imutils.resize(image, width=1000)
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
-# Получить размеры изображения
-image_size = numpy.asarray(image.shape)[0:2]
 
-# Получение списка лиц с координатами и значением уверенности
-faces_boxes = detector.detect_faces(image)
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Копия изображения для рисования рамок на нём
-image_detected = image.copy()
 
-# Копия изображения для рисования меток на нём
-image_marked = image.copy()
+@app.route('/')
+def upload_form():
+    return render_template('upload.html')
 
-# Замена BGR на RGB (так находит в два раза больше лиц)
-image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-# Цвет меток BGR
-marked_color = (0, 255, 0, 1)
+@app.route('/', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        flash('No file part')
+        return redirect(request.url)
+    file = request.files['file']
+    if file.filename == '':
+        flash('No image selected for uploading')
+        return redirect(request.url)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        #  print('upload_image filename: ' + filename)
+        flash('Image successfully uploaded and displayed below')
+        rez_detect = detect_image_face(filename)
+        return render_template('upload.html', filename=f'static/history/{rez_detect}')
+    else:
+        flash('Allowed image types are -> png, jpg, jpeg, gif')
+        return redirect(request.url)
 
-# Работа с лицами
-if faces_boxes:
 
-    face_n = 0  # Инициализация счётчика лиц
-    for face_box in faces_boxes:
+@app.route('/history/<filename>')
+def display_image(filename):
+    #  print('display_image filename: ' + filename)
+    return redirect(url_for('static/', filename='history' + filename), code=301)
 
-        # Увеличение счётчика файлов
-        face_n += 1
 
-        # Координаты лица
-        x, y, w, h = face_box['box']
+@app.route('/galary', methods=['GET', 'POST'])
+def galary():
+    images = list(map(lambda x: f"static/history/{x}", os.listdir('static/history')))
+    return render_template('galary.html', images=images)
 
-        # Отступы для увеличения рамки
-        d = h - w  # Разница между высотой и шириной
-        w = w + d  # Делаем изображение квадратным
-        x = numpy.maximum(x - round(d / 2), 0)
-        x1 = numpy.maximum(x - round(w / 4), 0)
-        y1 = numpy.maximum(y - round(h / 4), 0)
-        x2 = numpy.minimum(x + w + round(w / 4), image_size[1])
-        y2 = numpy.minimum(y + h + round(h / 4), image_size[0])
 
-        # Получение картинки с лицом
-        cropped = image_detected[y1:y2, x1:x2, :]
-        face_image = cv2.resize(cropped, (160, 160), interpolation=cv2.INTER_AREA)
-
-        # Отборка лиц {selected|rejected}
-        if face_box['confidence'] > 0.99:  # 0.99 - уверенность сети в процентах что это лицо
-
-            # Рисует белый квадрат на картинке по координатам
-            cv2.rectangle(
-                image_detected,
-                (x1, y1),
-                (x2, y2),
-                (0, 255, 255, 1),
-                10
-            )
-
-        else:
-
-            # Рисует красный квадрат на картинке по координатам
-            cv2.rectangle(
-                image_detected,
-                (x1, y1),
-                (x2, y2),
-                (0, 0, 255, 1),
-                10
-            )
-
-    # Сохранение исходного изображения с выделенными лицами
-    cv2.imwrite('people-detected.jpg', image_detected)
-
+if __name__ == "__main__":
+    app.run()
