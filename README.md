@@ -12,6 +12,7 @@ Web-интерфейс должен иметь следующие возможн
 `docker-compose up --build`
 
 Web на Flask максимально простой и интуитивно понятный
+
 <img width="233" alt="image" src="https://user-images.githubusercontent.com/41343563/169516028-15699936-fed1-4f97-b05e-2a429e0d9125.png">
 
 Результат работы выглядит так
