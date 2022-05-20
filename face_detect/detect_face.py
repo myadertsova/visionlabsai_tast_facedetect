@@ -1,9 +1,8 @@
-import datetime
-
-import cv2
-import imutils
-import numpy
 from mtcnn.mtcnn import MTCNN
+import cv2
+import numpy
+import imutils
+import datetime
 
 
 def upload_image(filename):
